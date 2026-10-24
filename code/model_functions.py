@@ -7,6 +7,7 @@ from scipy import stats
 from statsmodels.stats.multitest import multipletests
 from statsmodels.stats.sandwich_covariance import cov_cluster
 from statsmodels.stats.diagnostic import het_breuschpagan
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 import semopy
 
 
@@ -57,9 +58,12 @@ def joint_test(robust,terms):
 def diagnostics(fit):
     sw=stats.shapiro(fit.resid)
     bp=het_breuschpagan(fit.resid,fit.model.exog)
+    vifs=[{'predictor':name,'VIF':float(variance_inflation_factor(fit.model.exog,i))}
+          for i,name in enumerate(fit.model.exog_names) if name!='const']
     result={'shapiro_W':float(sw.statistic),'shapiro_p':float(sw.pvalue),
             'breusch_pagan_LM':float(bp[0]),'breusch_pagan_p':float(bp[1]),
-            'collinearity_handling':'Deferred: no VIF/correlation screen or alternative models performed',
+            'VIF':vifs,'VIF_max':max(row['VIF'] for row in vifs),
+            'collinearity_handling':'VIFs describe the specified equation; no automatic predictor selection.',
             'independence':'Community clustering; no temporal-order diagnostic'}
     result['interpretation']='Descriptive diagnostics only. Planned CRV1/HC3/bootstrap inference retained; no automatic variable or case removal.'
     result.pop('issues',None)

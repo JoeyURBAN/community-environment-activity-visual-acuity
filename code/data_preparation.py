@@ -8,7 +8,10 @@ are written by this module.
 import numpy as np
 import pandas as pd
 
-from config import COVARIATES, DOMAINS, INPUTS, ITEMS, OBJECTIVE, SUBJECTIVE
+from config import (
+    ALL_OBJECTIVE, COVARIATES, DOMAINS, INPUTS, ITEMS, OBJECTIVE,
+    OBJECTIVE_JOINT, OBJECTIVE_NDVI, SUBJECTIVE,
+)
 from runtime import save_csv, save_json
 
 
@@ -89,16 +92,16 @@ def load_data(export=True):
     joined = links[['row_index', 'town_osm_id']].merge(
         metrics, on='town_osm_id', how='left', validate='many_to_one'
     ).sort_values('row_index')
-    if joined[OBJECTIVE].isna().any().any():
+    if joined[ALL_OBJECTIVE].isna().any().any():
         raise ValueError('At least one mapped indicator is missing after unit matching')
 
     data['town_osm_id'] = joined.town_osm_id.to_numpy()
     data['group'] = pd.factorize(data.town_osm_id, sort=False)[0]
-    for name in OBJECTIVE:
+    for name in ALL_OBJECTIVE:
         data[name + '_raw'] = joined[name].to_numpy(float)
 
     scaling = {}
-    for name in OBJECTIVE:
+    for name in ALL_OBJECTIVE:
         values = data[name + '_raw']
         if (values < 0).any() and name != 'NDVI':
             raise ValueError(f'{name} contains negative values')
@@ -129,7 +132,7 @@ def load_data(export=True):
     )
     if counts != (238, 204, 226, 195, 90):
         raise ValueError(f'Unexpected sample counts: {counts}')
-    required = SUBJECTIVE + COVARIATES + OBJECTIVE + ['Outdoor', 'Screen', 'VA']
+    required = SUBJECTIVE + COVARIATES + ALL_OBJECTIVE + ['Outdoor', 'Screen', 'VA']
     if primary[required].isna().any().any():
         raise ValueError('Unexpected missing values in the primary analysis data')
 
@@ -175,7 +178,7 @@ def load_data(export=True):
         save_csv('tables/sample_flow.csv', flow)
         save_csv(
             'tables/descriptives_primary.csv',
-            primary[SUBJECTIVE + COVARIATES + OBJECTIVE
+            primary[SUBJECTIVE + COVARIATES + ALL_OBJECTIVE
                     + ['Outdoor', 'Screen', 'VA', 'VA_Lower']]
             .describe().T.reset_index(names='variable'),
         )
@@ -212,8 +215,8 @@ def categorical_replace(data, column, prefix, reference, levels=None):
     return data, terms, metadata
 
 
-def specifications(data, primary):
-    """Return the two main models and the retained linear sensitivity models."""
+def specifications(data, primary, include_greenness_comparisons=False):
+    """Return the R2 main models, retained sensitivities and optional comparisons."""
     specs = []
 
     def add(name, frame, covariates=None, exposures=None, domains=None, metadata=None):
@@ -238,6 +241,19 @@ def specifications(data, primary):
         )
 
     pair('subjective', primary)
+    if include_greenness_comparisons:
+        add(
+            'joint_original', primary, exposures=SUBJECTIVE + OBJECTIVE_JOINT,
+            metadata={
+                'scope': 'Supplementary comparison: original six-indicator contextual model.'
+            },
+        )
+        add(
+            'ndvi_only', primary, exposures=SUBJECTIVE + OBJECTIVE_NDVI,
+            metadata={
+                'scope': 'Supplementary comparison: NDVI replaces vegetation cover; other predictors unchanged.'
+            },
+        )
     pair(
         'range226',
         data[data.HasExam & data.RangeEligible],

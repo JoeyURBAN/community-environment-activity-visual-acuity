@@ -31,6 +31,11 @@ ITEMS = [
 
 SUBJECTIVE = [row[0] for row in ITEMS]
 COVARIATES = ['Age', 'Female', 'ParentOne', 'ParentTwo', 'Income', 'Education']
-OBJECTIVE = ['Vegetation', 'NDVI', 'Road', 'Facility', 'Building', 'ParkShare']
+# R2 main contextual model; the two alternatives are supplementary comparisons.
+OBJECTIVE = ['Vegetation', 'Road', 'Facility', 'Building', 'ParkShare']
+OBJECTIVE_JOINT = ['Vegetation', 'NDVI', 'Road', 'Facility', 'Building', 'ParkShare']
+OBJECTIVE_NDVI = ['NDVI', 'Road', 'Facility', 'Building', 'ParkShare']
+# Load and scale all six source measures once, using the same 195-child reference.
+ALL_OBJECTIVE = list(OBJECTIVE_JOINT)
 DOMAINS = {domain: [row[0] for row in ITEMS if row[3] == domain]
            for domain in dict.fromkeys(row[3] for row in ITEMS)}
